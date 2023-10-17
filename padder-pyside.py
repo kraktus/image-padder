@@ -72,9 +72,8 @@ class MainWindow(QMainWindow):
         self.aspect_edit.setParent(aspect_label)
 
         width_label = RightLabel("Width:")
-        # fix width_label width
+        # fix width_label width, useful(?)
         width_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
-        # width_label.setFixedWidth(60)
         self.width_edit = QLineEdit()
         self.width_edit.setFixedWidth(60)
 
@@ -127,12 +126,34 @@ class MainWindow(QMainWindow):
         self.image.setPixmap(image)
         # set label size to image size
         self.image.setFixedSize(image.size())
+        # set placeholder for width and height edit
+        self.width_edit.setPlaceholderText(str(image.width()))
+        self.height_edit.setPlaceholderText(str(image.height()))
+        # set placeholder for aspect ratio edit
+        self.aspect_edit.setPlaceholderText(f"{(image.width() / image.height()):.3f}")
+
+# convert QPIXMAP to PIL image
+def qimage_to_pil(image: QImage):
+    image = image.convertToFormat(QImage.Format_RGBA8888)
+    width = image.width()
+    height = image.height()
+    ptr = image.bits()
+    ptr.setsize(image.byteCount())
+    arr = bytearray(ptr)
+    return Image.frombuffer("RGBA", (width, height), arr, "raw", "RGBA", 0, 1)
+
+# convert PIL image to QPIXMAP
+def pil_to_qimage(image: Image):
+    width, height = image.size
+    data = image.tobytes("raw", "RGBA")
+    qimage = QImage(data, width, height, QImage.Format_RGBA8888)
+    return qimage
 
 
-def resize_with_padding(img, expected_size):
-    img.thumbnail((expected_size[0], expected_size[1]))
-    delta_width = expected_size[0] - img.size[0]
-    delta_height = expected_size[1] - img.size[1]
+def resize_with_padding(img, width, height):
+    img.thumbnail((width, height))
+    delta_width = width - img.size[0]
+    delta_height = height - img.size[1]
     pad_width = delta_width // 2
     pad_height = delta_height // 2
     padding = (
@@ -152,7 +173,7 @@ def normalise_img(path):
     current_asp = width / height
     if abs(current_asp - desired_aspect_ratio) < 0.01:
         return old  # Good enough
-    return resize_with_padding(old, (int(width * desired_aspect_ratio), int(width)))
+    return resize_with_padding(old, int(width * desired_aspect_ratio), int(width))
 
 
 if __name__ == "__main__":
