@@ -1,16 +1,49 @@
 import sys
-from PySide6.QtWidgets import QPushButton, QApplication, QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QLabel, QLineEdit, QSlider, QColorDialog
+from PySide6.QtWidgets import (
+    QPushButton,
+    QLayout,
+    QApplication,
+    QMainWindow,
+    QSizePolicy,
+    QWidget,
+    QHBoxLayout,
+    QVBoxLayout,
+    QLabel,
+    QLineEdit,
+    QSlider,
+    QColorDialog,
+)
 from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
 
-class Color(QWidget):
 
+class Color(QWidget):
     def __init__(self, color):
         super().__init__()
         self.setAutoFillBackground(True)
         palette = self.palette()
         palette.setColor(QPalette.Window, QColor(color))
         self.setPalette(palette)
+
+
+class ColoredButton(QPushButton):
+    def update_bg(self, color: str):
+        self.setStyleSheet(
+            f"background-color: {color}; border: 1px solid black;; border-radius: 5px;"
+        )
+
+    def open_color_dialog(self):
+        color = QColorDialog.getColor()
+        if color.isValid():
+            self.update_bg(color.name())
+
+
+class RightLabel(QLabel):
+    def __init__(self, text: str):
+        super().__init__(text)
+        # align right and center
+        self.setAlignment(Qt.AlignRight | Qt.AlignCenter)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -26,28 +59,35 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         topbar_layout = QHBoxLayout()
         # make the topbar_layout elements align to the left
-        topbar_layout.setAlignment(Qt.AlignLeft)
+        topbar_layout.setAlignment(Qt.AlignRight)
         layout.addLayout(topbar_layout)
 
         # Create the top bar widgets
-        aspect_label = QLabel("Aspect Ratio:")
-        self.aspect_edit = QLineEdit()
+        aspect_label = RightLabel("Aspect Ratio:")
+        self.aspect_edit = QLineEdit(aspect_label)
         self.aspect_edit.setFixedWidth(60)
+        self.aspect_edit.setParent(aspect_label)
 
-        width_label = QLabel("Width:")
+        width_label = RightLabel("Width:")
+        # fix width_label width
+        width_label.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Minimum)
+        # width_label.setFixedWidth(60)
         self.width_edit = QLineEdit()
         self.width_edit.setFixedWidth(60)
 
-        height_label = QLabel("Height:")
+        height_label = RightLabel("Height:")
         self.height_edit = QLineEdit()
         self.height_edit.setFixedWidth(60)
 
-        self.color_dialog_button = QPushButton("Color picker")
+        self.bg_color_button = ColoredButton("Background color")
+        self.bg_transparent_button = QPushButton("make Background transparent")
+
+        self.resize_button = QPushButton("Apply")
 
         # Create an image label to display the image
         self.image_label = QLabel(self)
         self.image_label.setAlignment(Qt.AlignCenter)
-        self.image_label.setFixedSize(600, 400)
+        # self.image_label.setFixedSize(600, 400)
 
         # Add the top bar widgets and the image label to the layout
         topbar_layout.addWidget(aspect_label)
@@ -56,39 +96,21 @@ class MainWindow(QMainWindow):
         topbar_layout.addWidget(self.width_edit)
         topbar_layout.addWidget(height_label)
         topbar_layout.addWidget(self.height_edit)
-        topbar_layout.addWidget(self.color_dialog_button)
+        topbar_layout.addWidget(self.bg_color_button)
+        topbar_layout.addWidget(self.bg_transparent_button)
+
+        topbar_layout.addWidget(self.resize_button)
+        # why is it the `layout` and not `topbar_layout` that needs to be fixedsize?
+        layout.setSizeConstraint(QLayout.SetFixedSize)
         layout.addWidget(self.image_label)
 
         # Connect the color dialog button signal to the slot
-        self.color_dialog_button.clicked.connect(self.open_color_dialog)
+        self.bg_color_button.clicked.connect(self.bg_color_button.open_color_dialog)
+        self.bg_transparent_button.clicked.connect(self.make_bg_transparent)
 
-    def open_color_dialog(self):
-        color = QColorDialog.getColor()
-        if color.isValid():
-            self.image_label.setStyleSheet("background-color: %s" % color.name())
+    def make_bg_transparent(self):
+        self.bg_color_button.update_bg("transparent")
 
-    def update_image(self):
-        aspect = float(self.aspect_edit.text())
-        width = int(self.width_edit.text())
-        height = int(self.height_edit.text())
-
-        # Create an image with the specified width, height, and aspect ratio
-        image = QImage(width, height, QImage.Format_RGB32)
-        image.fill(Qt.white)
-
-        painter = QPainter(image)
-        painter.setPen(Qt.NoPen)
-        painter.setBrush(QColor(255, 0, 0))
-        painter.drawRect(0, 0, width * aspect, height)
-
-        # Scale the image to fit the label's size
-        scaled_image = image.scaled(self.image_label.size(), Qt.AspectRatioMode.KeepAspectRatio)
-
-        # Convert the image to QPixmap and set it as the label's pixmap
-        pixmap = QPixmap.fromImage(scaled_image)
-        self.image_label.setPixmap(pixmap)
-
-        painter.end()
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
