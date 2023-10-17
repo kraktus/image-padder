@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 from PySide6.QtWidgets import (
     QPushButton,
@@ -29,7 +31,12 @@ class Color(QWidget):
 
 
 class ColoredButton(QPushButton):
+    def __init__(self, text: str):
+        super().__init__(text)
+        self.color = None
+
     def update_bg(self, color: str):
+        self.color = color
         self.setStyleSheet(
             f"background-color: {color}; border: 1px solid black;; border-radius: 5px;"
         )
@@ -38,6 +45,17 @@ class ColoredButton(QPushButton):
         color = QColorDialog.getColor()
         if color.isValid():
             self.update_bg(color.name())
+
+
+# decorator to catch exceptions and display them
+def catch_error(func):
+    def wrapper(window: MainWindow, *args, **kwargs):
+        try:
+            func(window, *args, **kwargs)
+        except Exception as e:
+            window.error_label.setText(str(e))
+
+    return wrapper
 
 
 class RightLabel(QLabel):
@@ -86,6 +104,15 @@ class MainWindow(QMainWindow):
 
         self.resize_button = QPushButton("Apply")
 
+        # error label
+        self.error_label = QLabel()
+        # set error label to red
+        self.error_label.setStyleSheet("color: red")
+        # set error height to 33
+        self.error_label.setFixedHeight(33)
+        # allow easy copy paste
+        self.error_label.setTextInteractionFlags(Qt.TextSelectableByMouse)
+
         # Create image upload button
         self.image_button = QPushButton("Upload image")
         self.image = QLabel()
@@ -103,7 +130,8 @@ class MainWindow(QMainWindow):
 
         topbar_layout.addWidget(self.resize_button)
         # why is it the `layout` and not `topbar_layout` that needs to be fixedsize?
-        # layout.setSizeConstraint(QLayout.SetFixedSize)
+        layout.setSizeConstraint(QLayout.SetFixedSize)
+        layout.addWidget(self.error_label)
         layout.addWidget(self.image_button)
         layout.addWidget(self.image)
 
@@ -112,10 +140,13 @@ class MainWindow(QMainWindow):
         self.bg_transparent_button.clicked.connect(self.make_bg_transparent)
         # Connect the image label to `load_image` method
         self.image_button.clicked.connect(self.load_image)
+        self.resize_button.clicked.connect(self.resize_image)
 
+    @catch_error
     def make_bg_transparent(self):
         self.bg_color_button.update_bg("transparent")
 
+    @catch_error
     # load image from file and display it in the image label
     def load_image(self):
         # open system finder
@@ -123,6 +154,7 @@ class MainWindow(QMainWindow):
             self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)"
         )
         image = QPixmap(filename)
+        self.original_image_pil = Image.open(filename)
         self.image.setPixmap(image)
         # set label size to image size
         self.image.setFixedSize(image.size())
@@ -132,25 +164,70 @@ class MainWindow(QMainWindow):
         # set placeholder for aspect ratio edit
         self.aspect_edit.setPlaceholderText(f"{(image.width() / image.height()):.3f}")
 
+    @catch_error
+    def resize_image(self):
+        # get width and height from edit
+        width = to_int(self.width_edit.text())
+        height = to_int(self.height_edit.text())
+        # get aspect ratio from edit
+        aspect_ratio = to_float(self.aspect_edit.text())
+        if aspect_ratio:
+            # if width and height is set, ignore aspect ratio
+            if width and height:
+                raise ValueError(
+                    "Can't set both width and height if aspect ratio is set"
+                )
+            TODO
+        if not width and not height:
+            raise ValueError("Must set width and height")
+
+        color = self.bg_color_button.color or "transparent"
+        print("padding color", color)
+        self.resized_pil_image = resize_with_padding(
+            self.original_image_pil, width, height, color
+        )
+        # set image to label
+        self.image.setPixmap(pil_to_pixmap(self.resized_pil_image))
+
+
+# faillible convert to int
+def to_int(s):
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+# faillible convert to float
+def to_float(s):
+    try:
+        return float(s)
+    except ValueError:
+        return None
+
+
 # convert QPIXMAP to PIL image
-def qimage_to_pil(image: QImage):
-    image = image.convertToFormat(QImage.Format_RGBA8888)
-    width = image.width()
-    height = image.height()
-    ptr = image.bits()
-    ptr.setsize(image.byteCount())
-    arr = bytearray(ptr)
-    return Image.frombuffer("RGBA", (width, height), arr, "raw", "RGBA", 0, 1)
+# def qimage_to_pil(image: QImage):
+#     image = image.convertToFormat(QImage.Format_RGBA8888)
+#     width = image.width()
+#     height = image.height()
+#     ptr = image.bits()
+#     ptr.setsize(image.byteCount())
+#     arr = bytearray(ptr)
+#     return Image.frombuffer("RGBA", (width, height), arr, "raw", "RGBA", 0, 1)
+
 
 # convert PIL image to QPIXMAP
-def pil_to_qimage(image: Image):
+def pil_to_pixmap(image: Image):
     width, height = image.size
     data = image.tobytes("raw", "RGBA")
     qimage = QImage(data, width, height, QImage.Format_RGBA8888)
-    return qimage
+    # qimage to qpixmap
+    pixmap = QPixmap.fromImage(qimage)
+    return pixmap
 
 
-def resize_with_padding(img, width, height):
+def resize_with_padding(img, width, height, color):
     img.thumbnail((width, height))
     delta_width = width - img.size[0]
     delta_height = height - img.size[1]
@@ -162,7 +239,8 @@ def resize_with_padding(img, width, height):
         int(delta_width - pad_width),
         delta_height - pad_height,
     )
-    return ImageOps.expand(img, padding)
+    # expand with color
+    return ImageOps.expand(img, padding, color)
 
 
 # Make it so all images have 1.33 aspect ratios
