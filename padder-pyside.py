@@ -42,7 +42,7 @@ class MainWindow(QMainWindow):
         self.height_edit = QLineEdit()
         self.height_edit.setFixedWidth(60)
 
-        self.color_dialog_button = QPushButton("Color Chooser")
+        self.color_dialog_button = QPushButton("Color picker")
 
         # Create an image label to display the image
         self.image_label = QLabel(self)
