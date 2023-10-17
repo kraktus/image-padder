@@ -38,7 +38,7 @@ class ColoredButton(QPushButton):
     def update_bg(self, color: str):
         self.color = color
         self.setStyleSheet(
-            f"background-color: {color}; border: 1px solid black;; border-radius: 5px;"
+            f"background-color: {color}; border: 1px solid black; border-radius: 5px;"
         )
 
     def open_color_dialog(self):
@@ -53,6 +53,7 @@ def catch_error(func):
         try:
             func(window, *args, **kwargs)
         except Exception as e:
+            print(e)
             window.error_label.setText(str(e))
 
     return wrapper
@@ -117,6 +118,9 @@ class MainWindow(QMainWindow):
         self.image_button = QPushButton("Upload image")
         self.image = QLabel()
         self.image.setFixedSize(600, 400)
+        self.image.setStyleSheet(
+            f"border: 1px solid black; border-radius: 5px;"
+        )
 
         # Add the top bar widgets and the image label to the layout
         topbar_layout.addWidget(aspect_label)
@@ -187,7 +191,20 @@ class MainWindow(QMainWindow):
             self.original_image_pil, width, height, color
         )
         # set image to label
-        self.image.setPixmap(pil_to_pixmap(self.resized_pil_image))
+        new_pixmap = pil_to_pixmap(self.resized_pil_image)
+        self.image.setPixmap(new_pixmap)
+        self.image.setFixedSize(new_pixmap.size())
+
+
+    # set pixmap to label
+    def set_pixmap(self, pixmap: QPixmap):
+        self.image.setPixmap(pixmap)
+        self.image.setFixedSize(pixmap.size())
+        # set placeholder for width and height edit
+        self.width_edit.setPlaceholderText(str(image.width()))
+        self.height_edit.setPlaceholderText(str(image.height()))
+        # set placeholder for aspect ratio edit
+        self.aspect_edit.setPlaceholderText(f"{(image.width() / image.height()):.3f}")
 
 
 # faillible convert to int
@@ -240,7 +257,8 @@ def resize_with_padding(img, width, height, color):
         delta_height - pad_height,
     )
     # expand with color
-    return ImageOps.expand(img, padding, color)
+    print("expand")
+    return ImageOps.expand(img, padding, fill=None)
 
 
 # Make it so all images have 1.33 aspect ratios
