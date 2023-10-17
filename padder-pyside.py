@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QSlider,
     QColorDialog,
+    QFileDialog
 )
 from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
@@ -58,6 +59,7 @@ class MainWindow(QMainWindow):
         # Create a layout for the central widget
         layout = QVBoxLayout(central_widget)
         topbar_layout = QHBoxLayout()
+        self.topbar_layout = topbar_layout
         # make the topbar_layout elements align to the left
         topbar_layout.setAlignment(Qt.AlignRight)
         layout.addLayout(topbar_layout)
@@ -84,10 +86,10 @@ class MainWindow(QMainWindow):
 
         self.resize_button = QPushButton("Apply")
 
-        # Create an image label to display the image
-        self.image_label = QLabel(self)
-        self.image_label.setAlignment(Qt.AlignCenter)
-        # self.image_label.setFixedSize(600, 400)
+        # Create image upload button
+        self.image_button = QPushButton("Upload image")
+        self.image = QLabel()
+        self.image.setFixedSize(600, 400)
 
         # Add the top bar widgets and the image label to the layout
         topbar_layout.addWidget(aspect_label)
@@ -101,18 +103,33 @@ class MainWindow(QMainWindow):
 
         topbar_layout.addWidget(self.resize_button)
         # why is it the `layout` and not `topbar_layout` that needs to be fixedsize?
-        layout.setSizeConstraint(QLayout.SetFixedSize)
-        layout.addWidget(self.image_label)
+        #layout.setSizeConstraint(QLayout.SetFixedSize)
+        layout.addWidget(self.image_button)
+        layout.addWidget(self.image)
 
         # Connect the color dialog button signal to the slot
         self.bg_color_button.clicked.connect(self.bg_color_button.open_color_dialog)
         self.bg_transparent_button.clicked.connect(self.make_bg_transparent)
+        # Connect the image label to `load_image` method
+        self.image_button.clicked.connect(self.load_image)
 
     def make_bg_transparent(self):
         self.bg_color_button.update_bg("transparent")
 
+    # load image from file and display it in the image label
+    def load_image(self):
+        # open system finder
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)"
+        )
+        image = QPixmap(filename)
+        self.image.setPixmap(image)
+        # set label size to image size
+        self.image.setFixedSize(image.size())
+
 
 if __name__ == "__main__":
+    print("#"*80)
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
