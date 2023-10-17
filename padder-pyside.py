@@ -176,16 +176,15 @@ class MainWindow(QMainWindow):
         # get aspect ratio from edit
         aspect_ratio = to_float(self.aspect_edit.text())
         if aspect_ratio:
-            # if width and height is set, ignore aspect ratio
             if width and height:
                 raise ValueError(
                     "Can't set both width and height if aspect ratio is set"
                 )
-            TODO
+            raise ValueError("Aspect ratio not implemented yet")
         if not width and not height:
             raise ValueError("Must set width and height")
 
-        color = self.bg_color_button.color or "transparent"
+        color = self.bg_color_button.color
         print("padding color", color)
         self.resized_pil_image = resize_with_padding(
             self.original_image_pil, width, height, color
@@ -258,7 +257,7 @@ def resize_with_padding(img, width, height, color):
     )
     # expand with color
     print("expand")
-    return ImageOps.expand(img, padding, fill=None)
+    return ImageOps.expand(img, padding, fill=color)
 
 
 # Make it so all images have 1.33 aspect ratios
