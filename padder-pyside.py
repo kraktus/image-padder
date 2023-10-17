@@ -12,10 +12,11 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QSlider,
     QColorDialog,
-    QFileDialog
+    QFileDialog,
 )
 from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
+from PIL import Image, ImageOps
 
 
 class Color(QWidget):
@@ -103,7 +104,7 @@ class MainWindow(QMainWindow):
 
         topbar_layout.addWidget(self.resize_button)
         # why is it the `layout` and not `topbar_layout` that needs to be fixedsize?
-        #layout.setSizeConstraint(QLayout.SetFixedSize)
+        # layout.setSizeConstraint(QLayout.SetFixedSize)
         layout.addWidget(self.image_button)
         layout.addWidget(self.image)
 
@@ -128,8 +129,34 @@ class MainWindow(QMainWindow):
         self.image.setFixedSize(image.size())
 
 
+def resize_with_padding(img, expected_size):
+    img.thumbnail((expected_size[0], expected_size[1]))
+    delta_width = expected_size[0] - img.size[0]
+    delta_height = expected_size[1] - img.size[1]
+    pad_width = delta_width // 2
+    pad_height = delta_height // 2
+    padding = (
+        pad_width,
+        pad_height,
+        int(delta_width - pad_width),
+        delta_height - pad_height,
+    )
+    return ImageOps.expand(img, padding)
+
+
+# Make it so all images have 1.33 aspect ratios
+def normalise_img(path):
+    desired_aspect_ratio = 1.33
+    old = Image.open(path)
+    width, height = old.size
+    current_asp = width / height
+    if abs(current_asp - desired_aspect_ratio) < 0.01:
+        return old  # Good enough
+    return resize_with_padding(old, (int(width * desired_aspect_ratio), int(width)))
+
+
 if __name__ == "__main__":
-    print("#"*80)
+    print("#" * 80)
     app = QApplication(sys.argv)
     window = MainWindow()
     window.show()
