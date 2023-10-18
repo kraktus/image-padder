@@ -19,6 +19,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
 from PIL import Image, ImageOps
+from pathlib import Path
 
 
 class Color(QWidget):
@@ -70,7 +71,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Image Viewer")
-        self.setGeometry(100, 100, 800, 600)
+        # self.setGeometry(100, 100, 800, 600)
 
         # Create a central widget
         central_widget = QWidget()
@@ -105,6 +106,8 @@ class MainWindow(QMainWindow):
 
         self.resize_button = QPushButton("Apply")
 
+        self.save_button = QPushButton("Save")
+
         # error label
         self.error_label = QLabel()
         # set error label to red
@@ -118,9 +121,7 @@ class MainWindow(QMainWindow):
         self.image_button = QPushButton("Upload image")
         self.image = QLabel()
         self.image.setFixedSize(600, 400)
-        self.image.setStyleSheet(
-            f"border: 1px solid black; border-radius: 5px;"
-        )
+        self.image.setStyleSheet(f"border: 1px solid black; border-radius: 5px;")
 
         # Add the top bar widgets and the image label to the layout
         topbar_layout.addWidget(aspect_label)
@@ -133,6 +134,7 @@ class MainWindow(QMainWindow):
         topbar_layout.addWidget(self.bg_transparent_button)
 
         topbar_layout.addWidget(self.resize_button)
+        topbar_layout.addWidget(self.save_button)
         # why is it the `layout` and not `topbar_layout` that needs to be fixedsize?
         layout.setSizeConstraint(QLayout.SetFixedSize)
         layout.addWidget(self.error_label)
@@ -145,6 +147,7 @@ class MainWindow(QMainWindow):
         # Connect the image label to `load_image` method
         self.image_button.clicked.connect(self.load_image)
         self.resize_button.clicked.connect(self.resize_image)
+        self.save_button.clicked.connect(self.save_image)
 
     @catch_error
     def make_bg_transparent(self):
@@ -163,12 +166,15 @@ class MainWindow(QMainWindow):
         # set label size to image size
         self.image.setFixedSize(image.size())
         # set placeholder for width and height edit
+        self.original_width = image.width()
         self.width_edit.setPlaceholderText(str(image.width()))
+        self.original_height = image.height()
         self.height_edit.setPlaceholderText(str(image.height()))
         # set placeholder for aspect ratio edit
-        self.aspect_edit.setPlaceholderText(f"{(image.width() / image.height()):.3f}")
+        self.original_aspect_ratio = image.width() / image.height()
+        self.aspect_edit.setPlaceholderText(f"{self.original_aspect_ratio:.3f}")
 
-    @catch_error
+    #@catch_error
     def resize_image(self):
         # get width and height from edit
         width = to_int(self.width_edit.text())
@@ -180,7 +186,12 @@ class MainWindow(QMainWindow):
                 raise ValueError(
                     "Can't set both width and height if aspect ratio is set"
                 )
-            raise ValueError("Aspect ratio not implemented yet")
+            width, height = compute_new_size(
+                self.original_aspect_ratio,
+                self.original_width,
+                self.original_height,
+                aspect_ratio,
+            )
         if not width and not height:
             raise ValueError("Must set width and height")
 
@@ -189,21 +200,26 @@ class MainWindow(QMainWindow):
         self.resized_pil_image = resize_with_padding(
             self.original_image_pil, width, height, color
         )
+
         # set image to label
         new_pixmap = pil_to_pixmap(self.resized_pil_image)
         self.image.setPixmap(new_pixmap)
         self.image.setFixedSize(new_pixmap.size())
 
+    @catch_error
+    def save_image(self):
+        # default saved filename is `<original_name>_padded.<extension>`
+        filename_path = Path(self.original_image_pil.filename)
+        stem = filename_path.stem
+        suffix = filename_path.suffix
 
-    # set pixmap to label
-    def set_pixmap(self, pixmap: QPixmap):
-        self.image.setPixmap(pixmap)
-        self.image.setFixedSize(pixmap.size())
-        # set placeholder for width and height edit
-        self.width_edit.setPlaceholderText(str(image.width()))
-        self.height_edit.setPlaceholderText(str(image.height()))
-        # set placeholder for aspect ratio edit
-        self.aspect_edit.setPlaceholderText(f"{(image.width() / image.height()):.3f}")
+        # open system finder, only allow to save in same format as original
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save Image", f"{stem}_padded", f"Image Files (*.{suffix})"
+        )
+        # save with keep if jpeg, best otherwise
+        # if suffix == ".jpeg" or suffix == ".jpg":
+        self.resized_pil_image.save(filename, quality="keep")
 
 
 # faillible convert to int
@@ -222,17 +238,6 @@ def to_float(s):
         return None
 
 
-# convert QPIXMAP to PIL image
-# def qimage_to_pil(image: QImage):
-#     image = image.convertToFormat(QImage.Format_RGBA8888)
-#     width = image.width()
-#     height = image.height()
-#     ptr = image.bits()
-#     ptr.setsize(image.byteCount())
-#     arr = bytearray(ptr)
-#     return Image.frombuffer("RGBA", (width, height), arr, "raw", "RGBA", 0, 1)
-
-
 # convert PIL image to QPIXMAP
 def pil_to_pixmap(image: Image):
     width, height = image.size
@@ -243,10 +248,20 @@ def pil_to_pixmap(image: Image):
     return pixmap
 
 
-def resize_with_padding(img, width, height, color):
-    img.thumbnail((width, height))
-    delta_width = width - img.size[0]
-    delta_height = height - img.size[1]
+# aspect ratio to new width, height, only growing
+def compute_new_size(old_aspect, width, height, new_aspect):
+    if new_aspect > old_aspect:
+        new_width = int(width * (new_aspect / old_aspect))
+        new_height = height
+    else:
+        new_height = int(height * (old_aspect / new_aspect))
+        new_width = width
+    return new_width, new_height
+
+
+def resize_with_padding(original_img, width, height, color):
+    delta_width = width - original_img.size[0]
+    delta_height = height - original_img.size[1]
     pad_width = delta_width // 2
     pad_height = delta_height // 2
     padding = (
@@ -255,20 +270,8 @@ def resize_with_padding(img, width, height, color):
         int(delta_width - pad_width),
         delta_height - pad_height,
     )
-    # expand with color
-    print("expand")
-    return ImageOps.expand(img, padding, fill=color)
-
-
-# Make it so all images have 1.33 aspect ratios
-def normalise_img(path):
-    desired_aspect_ratio = 1.33
-    old = Image.open(path)
-    width, height = old.size
-    current_asp = width / height
-    if abs(current_asp - desired_aspect_ratio) < 0.01:
-        return old  # Good enough
-    return resize_with_padding(old, int(width * desired_aspect_ratio), int(width))
+    expanded = ImageOps.expand(original_img.copy(), padding, fill=color)
+    return expanded
 
 
 if __name__ == "__main__":
