@@ -39,7 +39,7 @@ class ColoredButton(QPushButton):
 
     def update_bg(self, color: str):
         if color == "transparent":
-            self.color = None # PIL store transparent color as `None`
+            self.color = None  # PIL store transparent color as `None`
         else:
             self.color = color
         self.setStyleSheet(
