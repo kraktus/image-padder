@@ -74,6 +74,7 @@ class RightLabel(QLabel):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.resized_pil_image = None
         self.setWindowTitle("Image Viewer")
         # self.setGeometry(100, 100, 800, 600)
 
@@ -228,6 +229,8 @@ class MainWindow(QMainWindow):
         )
         # save with keep if jpeg, best otherwise
         # if suffix == ".jpeg" or suffix == ".jpg":
+        if self.resized_pil_image is None:
+            raise ValueError("Must resize image before saving")
         self.resized_pil_image.save(filename, quality="keep")
 
 
