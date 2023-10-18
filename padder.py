@@ -75,7 +75,7 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.resized_pil_image = None
-        self.setWindowTitle("Image Viewer")
+        self.setWindowTitle("Image Padder")
         # self.setGeometry(100, 100, 800, 600)
 
         # Create a central widget
