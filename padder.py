@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QColorDialog,
     QFileDialog,
 )
+import traceback
 from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
 from PIL import Image, ImageOps
@@ -37,7 +38,10 @@ class ColoredButton(QPushButton):
         self.color = None
 
     def update_bg(self, color: str):
-        self.color = color
+        if color == "transparent":
+            self.color = None # PIL store transparent color as `None`
+        else:
+            self.color = color
         self.setStyleSheet(
             f"background-color: {color}; border: 1px solid black; border-radius: 5px;"
         )
@@ -54,7 +58,7 @@ def catch_error(func):
         try:
             func(window, *args, **kwargs)
         except Exception as e:
-            print(e)
+            traceback.print_exception(e)
             window.error_label.setText(str(e))
 
     return wrapper
@@ -144,8 +148,9 @@ class MainWindow(QMainWindow):
         # Connect the color dialog button signal to the slot
         self.bg_color_button.clicked.connect(self.bg_color_button.open_color_dialog)
         self.bg_transparent_button.clicked.connect(self.make_bg_transparent)
-        # Connect the image label to `load_image` method
-        self.image_button.clicked.connect(self.load_image)
+        # test image
+        self.load_image("mandrill.jpg")
+        self.image_button.clicked.connect(self.prompt_load_image)
         self.resize_button.clicked.connect(self.resize_image)
         self.save_button.clicked.connect(self.save_image)
 
@@ -155,11 +160,15 @@ class MainWindow(QMainWindow):
 
     @catch_error
     # load image from file and display it in the image label
-    def load_image(self):
+    def prompt_load_image(self):
         # open system finder
         filename, _ = QFileDialog.getOpenFileName(
             self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)"
         )
+        self.load_image(filename)
+
+    @catch_error
+    def load_image(self, filename):
         image = QPixmap(filename)
         self.original_image_pil = Image.open(filename)
         self.image.setPixmap(image)
@@ -174,7 +183,7 @@ class MainWindow(QMainWindow):
         self.original_aspect_ratio = image.width() / image.height()
         self.aspect_edit.setPlaceholderText(f"{self.original_aspect_ratio:.3f}")
 
-    #@catch_error
+    @catch_error
     def resize_image(self):
         # get width and height from edit
         width = to_int(self.width_edit.text())
