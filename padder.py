@@ -170,11 +170,10 @@ class MainWindow(QMainWindow):
 
     @catch_error
     def load_image(self, filename):
-        image = QPixmap(filename).scaled(self.image.size(), Qt.KeepAspectRatio)
-        self.original_image_pil = Image.open(filename)
-        self.image.setPixmap(image)
-        # set label size to image size
-        self.image.setFixedSize(image.size())
+        image = QPixmap(filename)
+        self.original_image_pil = Image.open(filename).convert('RGBA')
+        self.original_image_pil.filename = filename
+        self.image.setPixmap(image.scaled(self.image.size(), Qt.KeepAspectRatio))
         # set placeholder for width and height edit
         self.original_width = image.width()
         self.width_edit.setPlaceholderText(str(image.width()))
@@ -232,7 +231,7 @@ class MainWindow(QMainWindow):
         if self.resized_pil_image is None:
             raise ValueError("Must resize image before saving")
         # change so it works for all formats
-        self.resized_pil_image.save(filename, quality=100, subsampling=0)
+        self.resized_pil_image.save(filename, quality="keep")
 
 
 # faillible convert to int
