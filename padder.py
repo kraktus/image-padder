@@ -125,7 +125,7 @@ class MainWindow(QMainWindow):
         # Create image upload button
         self.image_button = QPushButton("Upload image")
         self.image = QLabel()
-        self.image.setFixedSize(600, 400)
+        self.image.setFixedSize(600, 600)
         self.image.setStyleSheet(f"border: 1px solid black; border-radius: 5px;")
 
         # Add the top bar widgets and the image label to the layout
@@ -170,7 +170,7 @@ class MainWindow(QMainWindow):
 
     @catch_error
     def load_image(self, filename):
-        image = QPixmap(filename)
+        image = QPixmap(filename).scaled(self.image.size(), Qt.KeepAspectRatio)
         self.original_image_pil = Image.open(filename)
         self.image.setPixmap(image)
         # set label size to image size
@@ -212,9 +212,10 @@ class MainWindow(QMainWindow):
         )
 
         # set image to label
-        new_pixmap = pil_to_pixmap(self.resized_pil_image)
+        new_pixmap = pil_to_pixmap(self.resized_pil_image).scaled(
+            self.image.size(), Qt.KeepAspectRatio
+        )
         self.image.setPixmap(new_pixmap)
-        self.image.setFixedSize(new_pixmap.size())
 
     @catch_error
     def save_image(self):
@@ -228,10 +229,10 @@ class MainWindow(QMainWindow):
             self, "Save Image", f"{stem}_padded", f"Image Files (*.{suffix})"
         )
         # save with keep if jpeg, best otherwise
-        # if suffix == ".jpeg" or suffix == ".jpg":
         if self.resized_pil_image is None:
             raise ValueError("Must resize image before saving")
-        self.resized_pil_image.save(filename, quality="keep")
+        # change so it works for all formats
+        self.resized_pil_image.save(filename, quality=100, subsampling=0)
 
 
 # faillible convert to int
