@@ -21,6 +21,7 @@ from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
 from PIL import Image, ImageOps
 from pathlib import Path
+import subprocess
 
 
 class Color(QWidget):
@@ -75,7 +76,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.resized_pil_image = None
-        self.setWindowTitle("Image Padder")
+
+        self.setWindowTitle(f"Image Padder, commit: {get_git_revision_short_hash()}")
         # self.setGeometry(100, 100, 800, 600)
 
         # Create a central widget
@@ -171,7 +173,7 @@ class MainWindow(QMainWindow):
     @catch_error
     def load_image(self, filename):
         image = QPixmap(filename)
-        self.original_image_pil = Image.open(filename).convert('RGBA')
+        self.original_image_pil = Image.open(filename).convert("RGBA")
         self.original_image_pil.filename = filename
         self.image.setPixmap(image.scaled(self.image.size(), Qt.KeepAspectRatio))
         # set placeholder for width and height edit
@@ -284,6 +286,15 @@ def resize_with_padding(original_img, width, height, color):
     )
     expanded = ImageOps.expand(original_img.copy(), padding, fill=color)
     return expanded
+
+
+# https://stackoverflow.com/a/21901260/20374403
+def get_git_revision_short_hash() -> str:
+    return (
+        subprocess.check_output(["git", "rev-parse", "--short", "HEAD"])
+        .decode("ascii")
+        .strip()
+    )
 
 
 if __name__ == "__main__":
