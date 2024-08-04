@@ -73,6 +73,11 @@ class RightLabel(QLabel):
 
 
 class MainWindow(QMainWindow):
+
+    MAX_IMAGE_WIDTH = 600
+    MAX_IMAGE_HEIGHT = 600
+    MAX_IMAGE_DIM = (MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
+
     def __init__(self):
         super().__init__()
         self.resized_pil_image = None
@@ -127,7 +132,7 @@ class MainWindow(QMainWindow):
         # Create image upload button
         self.image_button = QPushButton("Upload image")
         self.image = QLabel()
-        self.image.setFixedSize(600, 600)
+        self.image.setFixedSize(*self.MAX_IMAGE_DIM)
         self.image.setStyleSheet(f"border: 1px solid black; border-radius: 5px;")
 
         # Add the top bar widgets and the image label to the layout
@@ -175,7 +180,8 @@ class MainWindow(QMainWindow):
         image = QPixmap(filename)
         self.original_image_pil = Image.open(filename).convert("RGBA")
         self.original_image_pil.filename = filename
-        self.image.setPixmap(image.scaled(self.image.size(), Qt.KeepAspectRatio))
+        #self.image.setPixmap(image.scaled(self.image.size(), Qt.KeepAspectRatio))
+        self.display_image(image)
         # set placeholder for width and height edit
         self.original_width = image.width()
         self.width_edit.setPlaceholderText(str(image.width()))
@@ -184,6 +190,17 @@ class MainWindow(QMainWindow):
         # set placeholder for aspect ratio edit
         self.original_aspect_ratio = image.width() / image.height()
         self.aspect_edit.setPlaceholderText(f"{self.original_aspect_ratio:.3f}")
+
+
+    @catch_error
+    def display_image(self, image: QPixmap):
+        scaled_image = image.scaled(*self.MAX_IMAGE_DIM, Qt.KeepAspectRatio)
+        print("scaled image", scaled_image.width(), scaled_image.height())
+        image_display_width = min(scaled_image.width(), self.MAX_IMAGE_WIDTH)
+        image_display_height = min(scaled_image.height(), self.MAX_IMAGE_HEIGHT)
+        print("image_display_width", image_display_width, "image_display_height", image_display_height)
+        self.image.setPixmap(scaled_image)
+        self.image.setFixedSize(image_display_width, image_display_height)
 
     @catch_error
     def resize_image(self):
@@ -212,11 +229,7 @@ class MainWindow(QMainWindow):
             self.original_image_pil, width, height, color
         )
 
-        # set image to label
-        new_pixmap = pil_to_pixmap(self.resized_pil_image).scaled(
-            self.image.size(), Qt.KeepAspectRatio
-        )
-        self.image.setPixmap(new_pixmap)
+        self.display_image(pil_to_pixmap(self.resized_pil_image))
 
     @catch_error
     def save_image(self):
