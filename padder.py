@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 import sys
 from PySide6.QtWidgets import (
     QPushButton,
@@ -17,11 +16,15 @@ from PySide6.QtWidgets import (
     QFileDialog,
 )
 import traceback
+from pathlib import Path
 from PySide6.QtGui import QColor, QImage, QPixmap, QPalette
 from PySide6.QtCore import Qt
 from PIL import Image, ImageOps
 from pathlib import Path
 import subprocess
+
+
+SCRIPT_DIR = Path(__file__).resolve(strict=True).parent
 
 
 class Color(QWidget):
@@ -72,8 +75,25 @@ class RightLabel(QLabel):
         self.setAlignment(Qt.AlignRight | Qt.AlignCenter)
 
 
-class MainWindow(QMainWindow):
+class FileNameCache:
+    CACHE_FILE: Path = SCRIPT_DIR / "paddler-image-filename-cache.txt"
 
+    @staticmethod
+    def set(filename: str) -> None:
+        path = Path(filename).resolve(strict=True).parent
+        with open(FileNameCache.CACHE_FILE, "w") as f:
+            f.write(str(path))
+
+    @staticmethod
+    def get() -> Path:
+        # save to tmp file
+        if not FileNameCache.CACHE_FILE.exists():
+            return SCRIPT_DIR
+        with open(FileNameCache.CACHE_FILE, "r") as f:
+            return Path(f.read())
+
+
+class MainWindow(QMainWindow):
     MAX_IMAGE_WIDTH = 600
     MAX_IMAGE_HEIGHT = 600
     MAX_IMAGE_DIM = (MAX_IMAGE_WIDTH, MAX_IMAGE_HEIGHT)
@@ -171,16 +191,21 @@ class MainWindow(QMainWindow):
     def prompt_load_image(self):
         # open system finder
         filename, _ = QFileDialog.getOpenFileName(
-            self, "Open Image", "", "Image Files (*.png *.jpg *.jpeg *.bmp)"
+            self,
+            "Open Image",
+            str(FileNameCache.get()),
+            "Image Files (*.png *.jpg *.jpeg *.bmp)",
         )
-        self.load_image(filename)
+        if filename:  # if the user cancel, filename should be empty
+            FileNameCache.set(filename)
+            self.load_image(filename)
 
     @catch_error
     def load_image(self, filename):
         image = QPixmap(filename)
         self.original_image_pil = Image.open(filename).convert("RGBA")
         self.original_image_pil.filename = filename
-        #self.image.setPixmap(image.scaled(self.image.size(), Qt.KeepAspectRatio))
+        # self.image.setPixmap(image.scaled(self.image.size(), Qt.KeepAspectRatio))
         self.display_image(image)
         # set placeholder for width and height edit
         self.original_width = image.width()
@@ -191,14 +216,18 @@ class MainWindow(QMainWindow):
         self.original_aspect_ratio = image.width() / image.height()
         self.aspect_edit.setPlaceholderText(f"{self.original_aspect_ratio:.3f}")
 
-
     @catch_error
     def display_image(self, image: QPixmap):
         scaled_image = image.scaled(*self.MAX_IMAGE_DIM, Qt.KeepAspectRatio)
         print("scaled image", scaled_image.width(), scaled_image.height())
         image_display_width = min(scaled_image.width(), self.MAX_IMAGE_WIDTH)
         image_display_height = min(scaled_image.height(), self.MAX_IMAGE_HEIGHT)
-        print("image_display_width", image_display_width, "image_display_height", image_display_height)
+        print(
+            "image_display_width",
+            image_display_width,
+            "image_display_height",
+            image_display_height,
+        )
         self.image.setPixmap(scaled_image)
         self.image.setFixedSize(image_display_width, image_display_height)
 
@@ -240,7 +269,10 @@ class MainWindow(QMainWindow):
 
         # open system finder, only allow to save in same format as original
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Save Image", f"{stem}_padded", f"Image Files (*.{suffix})"
+            self,
+            "Save Image",
+            FileNameCache.get() / f"{stem}_padded",
+            f"Image Files (*.{suffix})",
         )
         # save with keep if jpeg, best otherwise
         if self.resized_pil_image is None:
