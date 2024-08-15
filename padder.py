@@ -85,12 +85,12 @@ class FileNameCache:
             f.write(str(path))
 
     @staticmethod
-    def get() -> Path:
+    def get() -> str:
         # save to tmp file
         if not FileNameCache.CACHE_FILE.exists():
             return SCRIPT_DIR
         with open(FileNameCache.CACHE_FILE, "r") as f:
-            return Path(f.read())
+            return f.read()
 
 
 class MainWindow(QMainWindow):
@@ -271,7 +271,7 @@ class MainWindow(QMainWindow):
         filename, _ = QFileDialog.getSaveFileName(
             self,
             "Save Image",
-            FileNameCache.get() / f"{stem}_padded",
+            FileNameCache.get() + f"{stem}_padded",
             f"Image Files (*.{suffix})",
         )
         # save with keep if jpeg, best otherwise
